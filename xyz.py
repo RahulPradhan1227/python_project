@@ -1,85 +1,115 @@
-import csv
-import os
 import datetime
 
-class Account:
-    def _init_(self, acc_no, password, name="", initial_bal=0):
-        self.acc_no = str(acc_no)
-        self.password = password
+# --- BANK ACCOUNT CLASS ---
+# This class handles all the saving and loading of data
+class BankAccount:
+    def __init__(self, name, acc_number, balance):
         self.name = name
-        self.filename = f"database/Statement_{self.acc_no}.csv"
-        os.makedirs("database", exist_ok=True)
-
-        if not os.path.exists(self.filename):
-            with open(self.filename, 'a', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow(["Timestamp", "Transaction Type", "Amount", "Balance", "Description"])
-            self.balance = initial_bal
-            self.log_transaction("CREDIT", initial_bal, "Account Created")
-            print(f"Account {acc_no} created successfully!")
-        else:
-            self.balance = self.get_last_balance()
-            print(f"Welcome back {name}! Current Balance: ₹{self.balance}")
-
-    def log_transaction(self, trans_type, amount, desc=""):
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(self.filename, 'a', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow([timestamp, trans_type, amount, self.balance, desc])
-
-    def get_last_balance(self):
+        self.acc_number = str(acc_number)
+        self.balance = balance
+        
+        # We will save data in a simple text file named after the account number
+        # e.g., "101.txt"
+        self.file_name = self.acc_number + ".txt"
+        
+        # CHECKING IF OLD ACCOUNT EXISTS
+        # We try to open the file in 'read' mode ('r')
         try:
-            with open(self.filename, 'r') as f:
-                rows = list(csv.reader(f))
-                if len(rows) > 1:
-                    return float(rows[-1][3])
-                else:
-                    return 0.0
+            with open(self.file_name, "r") as f:
+                lines = f.readlines()
+                # If file has lines, we get the last balance from the last line
+                if len(lines) > 0:
+                    last_line = lines[-1]
+                    data = last_line.split(",") # splitting by comma
+                    
+                    # The balance is the 4th item (index 3) in our text file
+                    self.balance = float(data[3])
+                    print(f"\nWelcome back {self.name}!")
+                    print(f"Restored Balance: {self.balance}")
         except:
-            return 0.0
+            # If file doesn't exist, it goes here (New Account)
+            print(f"\nCreating new account for {self.name}...")
+            # Save the starting balance
+            self.save_transaction("Created", balance)
 
+    # A simple function to save data to the text file
+    def save_transaction(self, type, amount):
+        with open(self.file_name, "a") as f:
+            # Get current time
+            t = datetime.datetime.now()
+            
+            # Format: Time, Type, Amount, Current Balance
+            # We add "\n" to go to the next line
+            line = f"{t},{type},{amount},{self.balance}\n"
+            f.write(line)
+    
     def deposit(self, amount):
-        if amount <= 0:
-            print("Amount must be positive!")
-            return False
-        self.balance += amount
-        self.log_transaction("CREDIT", amount)
-        print(f"₹{amount} Deposited | New Balance: ₹{self.balance}")
-        return True
+        if amount > 0:
+            self.balance = self.balance + amount
+            self.save_transaction("Deposit", amount)
+            print("Success! Money Added.")
+            print(f"Current Balance: {self.balance}")
+        else:
+            print("Error: Amount must be positive.")
 
     def withdraw(self, amount):
-        if amount <= 0:
-            print("Invalid amount!")
-            return False
-        if self.balance >= amount:
-            self.balance -= amount
-            self.log_transaction("DEBIT", amount)
-            print(f"₹{amount} Withdrawn | Remaining: ₹{self.balance}")
-            return True
+        if amount > self.balance:
+            print("Error: Not enough money!")
+        elif amount <= 0:
+            print("Error: Invalid amount.")
         else:
-            print("Insufficient Balance!")
-            return False
+            self.balance = self.balance - amount
+            self.save_transaction("Withdraw", amount)
+            print("Success! Money taken out.")
+            print(f"Current Balance: {self.balance}")
 
-    def transfer(self, to_acc, amount):
-        if self.withdraw(amount, f"Transfer to {to_acc.acc_no}"):
-            to_acc.deposit(amount, f"Transfer from {self.acc_no}")
-            print("Transfer Successful!")
-            return True
-        return False
-
-    def show_statement(self):
-        print(f"\n{'='*60}")
-        print(f"STATEMENT FOR ACCOUNT: {self.acc_no} ({self.name})")
-        print(f"{'='*60}")
+    def show_history(self):
+        print("\n--- PASSBOOK PRINTING ---")
         try:
-            with open(self.filename, 'r') as f:
-                reader = csv.reader(f)
-                for row in reader:
-                    print(f"{row[0]} | {row[1]:<8} | ₹{row[2]:<10} | Bal: ₹{row[3]} | {row[4]}")
+            with open(self.file_name, "r") as f:
+                content = f.read()
+                print(content)
         except:
-            print("No transactions yet.")
-            
-s1 = Account("1234",100,"rahul",100000)
-s1.withdraw(999)
+            print("No history found.")
+        print("-------------------------\n")
 
-s1.show_statement()
+# --- MAIN PROGRAM STARTS HERE ---
+# This is the part that runs when you start the game/app
+
+print("=== WELCOME TO PYTHON BANK ===")
+
+# Asking user for basic details
+n = input("Enter your Name: ")
+a = input("Enter Account Number (e.g., 101): ")
+b = float(input("Enter Initial Balance: "))
+
+# Creating the object
+my_account = BankAccount(n, a, b)
+
+# The Menu Loop
+while True:
+    print("\nSelect an Option:")
+    print("1. Deposit Money")
+    print("2. Withdraw Money")
+    print("3. Print Passbook")
+    print("4. Exit")
+    
+    choice = input("Enter choice (1-4): ")
+    
+    if choice == "1":
+        amt = float(input("Enter amount to deposit: "))
+        my_account.deposit(amt)
+        
+    elif choice == "2":
+        amt = float(input("Enter amount to withdraw: "))
+        my_account.withdraw(amt)
+        
+    elif choice == "3":
+        my_account.show_history()
+        
+    elif choice == "4":
+        print("Thank you for using Python Bank. Bye!")
+        break # Stops the loop
+        
+    else:
+        print("Invalid choice, please try again.")
